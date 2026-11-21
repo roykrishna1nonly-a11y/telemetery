@@ -27,7 +27,7 @@
       background: linear-gradient(135deg, #5542a0, #7665e8);
       border-radius: 18px;
       padding: 20px;
-      margin-bottom: 16px;
+      margin-bottom: 14px;
       box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
     }
 
@@ -40,6 +40,41 @@
     .top-bar p {
       font-size: 12px;
       opacity: 0.9;
+    }
+
+    .alert-banner {
+      background: #1f2d52;
+      border: 1px solid #4ea8de;
+      border-radius: 14px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+      font-size: 12px;
+      font-weight: 600;
+      color: #e0f2fe;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 10px;
+      transition: transform 0.2s ease, background 0.2s ease;
+    }
+
+    .alert-banner.flash {
+      background: #2ed573;
+      color: #081c11;
+      border-color: #2ed573;
+      transform: scale(1.01);
+    }
+
+    .sound-pill {
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: inherit;
+      padding: 5px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+      white-space: nowrap;
     }
 
     .card {
@@ -129,6 +164,10 @@
       flex-wrap: wrap;
     }
 
+    .exit-tag {
+      color: #ff6b81;
+    }
+
     .mono {
       font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
       font-size: 11px;
@@ -143,8 +182,13 @@
   <div class="wrap">
     <header class="top-bar">
       <h1>📱 BrokeMeter Phone Telemetry</h1>
-      <p id="status-line">Enter your Admin Key to view live user data & toggle site state</p>
+      <p id="status-line">Enter your Admin Key to view live viewers, opens, exits & toggle site state</p>
     </header>
+
+    <div id="open-alert-banner" class="alert-banner">
+      <span id="open-alert-text">🔔 Waiting for new web opens...</span>
+      <button type="button" id="enable-sound-btn" class="sound-pill">🔊 Sound: ON</button>
+    </div>
 
     <section class="card">
       <h2>Admin Access</h2>
@@ -160,7 +204,7 @@
       <div class="switch-box">
         <div>
           <span id="site-state-badge" class="switch-badge badge-on">SITE: ON</span>
-          <p class="muted" style="margin-top: 6px;">Turns BrokeMeter predictions on or off remotely (syncs every 1s).</p>
+          <p class="muted" style="margin-top: 6px;">Turns BrokeMeter on or off remotely (syncs every 1s).</p>
         </div>
         <div class="row">
           <button type="button" id="turn-on-btn" class="btn-on">Turn ON</button>
@@ -170,8 +214,18 @@
     </section>
 
     <section class="card">
-      <h2>Recently Connected Users (<span id="users-count">0</span>)</h2>
-      <div id="users-list"><p class="muted">No telemetry loaded yet.</p></div>
+      <h2>Live Users Watching Right Now (<span id="live-watching-count">0</span>)</h2>
+      <div id="live-watching-list"><p class="muted">No live viewers right now.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Just Opened the Page</h2>
+      <div id="just-opened-list"><p class="muted">No recent page opens yet.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Exits Data (<span id="exits-count">0</span>)</h2>
+      <div id="exits-list"><p class="muted">No exits recorded yet.</p></div>
     </section>
 
     <section class="card">
@@ -190,11 +244,77 @@
     const refreshBtn = document.getElementById("refresh-btn");
     const turnOnBtn = document.getElementById("turn-on-btn");
     const turnOffBtn = document.getElementById("turn-off-btn");
+    const enableSoundBtn = document.getElementById("enable-sound-btn");
+    const openAlertBanner = document.getElementById("open-alert-banner");
+    const openAlertText = document.getElementById("open-alert-text");
     const statusLine = document.getElementById("status-line");
     const badge = document.getElementById("site-state-badge");
 
     const savedKey = localStorage.getItem("BROKEMETER_ADMIN_KEY") || "";
     if (savedKey) keyInput.value = savedKey;
+
+    let soundEnabled = true;
+    let audioCtx = null;
+    let lastKnownOpenSeq = null;
+
+    function unlockAudio() {
+      try {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+          }
+        }
+        if (audioCtx && audioCtx.state === "suspended") {
+          audioCtx.resume();
+        }
+      } catch (_) {}
+    }
+
+    function playOpenChime() {
+      if (!soundEnabled) return;
+      try {
+        unlockAudio();
+        if (!audioCtx) return;
+        const now = audioCtx.currentTime;
+
+        const notes = [659.25, 880];
+        notes.forEach((freq, idx) => {
+          const osc = audioCtx.createOscillator();
+          const gain = audioCtx.createGain();
+          osc.type = "sine";
+          osc.frequency.setValueAtTime(freq, now + idx * 0.11);
+
+          gain.gain.setValueAtTime(0.001, now + idx * 0.11);
+          gain.gain.exponentialRampToValueAtTime(0.18, now + idx * 0.11 + 0.02);
+          gain.gain.exponentialRampToValueAtTime(0.0001, now + idx * 0.11 + 0.28);
+
+          osc.connect(gain);
+          gain.connect(audioCtx.destination);
+          osc.start(now + idx * 0.11);
+          osc.stop(now + idx * 0.11 + 0.3);
+        });
+      } catch (_) {}
+    }
+
+    function triggerNewOpenNotification(userObj) {
+      const timeStr = formatIst12Hour(userObj.opened_at_epoch ?? userObj.opened_at_utc);
+      openAlertText.textContent = `🔔 New Open! IP ${userObj.ip} (${userObj.platform}) at ${timeStr}`;
+      openAlertBanner.classList.add("flash");
+      playOpenChime();
+      setTimeout(() => {
+        openAlertBanner.classList.remove("flash");
+      }, 1500);
+    }
+
+    enableSoundBtn.addEventListener("click", () => {
+      unlockAudio();
+      soundEnabled = !soundEnabled;
+      enableSoundBtn.textContent = soundEnabled ? "🔊 Sound: ON" : "🔇 Sound: OFF";
+      if (soundEnabled) playOpenChime();
+    });
+
+    document.addEventListener("pointerdown", unlockAudio, { once: true });
 
     function getKey() {
       return keyInput.value.trim();
@@ -245,21 +365,55 @@
         statusLine.textContent = `Connected to ${API_BASE_URL} · Live 1s sync`;
         setBadge(data.site_enabled);
 
-        const users = data.connected_users || [];
-        document.getElementById("users-count").textContent = users.length;
-        document.getElementById("users-list").innerHTML = users.length
-          ? users.map(u => `
+        const currentOpenSeq = Number(data.open_counter ?? 0);
+        const openedUsers = data.just_opened_users || [];
+        if (lastKnownOpenSeq !== null && currentOpenSeq > lastKnownOpenSeq && openedUsers.length > 0) {
+          triggerNewOpenNotification(openedUsers[0]);
+        }
+        lastKnownOpenSeq = currentOpenSeq;
+
+        const watching = data.live_watching_users || [];
+        document.getElementById("live-watching-count").textContent = watching.length;
+        document.getElementById("live-watching-list").innerHTML = watching.length
+          ? watching.map(u => `
               <div class="log-item">
                 <div class="log-head">
-                  <span>IP: ${u.ip}</span>
-                  <span>${formatIst12Hour(u.last_seen_epoch ?? u.last_seen_utc)}</span>
+                  <span>🟢 WATCHING · IP: ${u.ip}</span>
+                  <span>Opened: ${formatIst12Hour(u.opened_at_epoch ?? u.opened_at_utc)}</span>
                 </div>
-                <div>Platform: <strong>${u.platform}</strong> · Timezone: <strong>${u.timezone}</strong></div>
-                <div>Screen: <strong>${u.screen}</strong> · Viewport: <strong>${u.viewport}</strong></div>
+                <div>Platform: <strong>${u.platform}</strong> · Screen: <strong>${u.screen}</strong> · Viewport: <strong>${u.viewport}</strong></div>
                 <div class="mono">UA: ${u.user_agent}</div>
               </div>
             `).join("")
-          : `<p class="muted">No active users in the last 5 minutes.</p>`;
+          : `<p class="muted">No live users watching right now.</p>`;
+
+        document.getElementById("just-opened-list").innerHTML = openedUsers.length
+          ? openedUsers.map(u => `
+              <div class="log-item">
+                <div class="log-head">
+                  <span>🚀 OPENED · IP: ${u.ip}</span>
+                  <span>${formatIst12Hour(u.opened_at_epoch ?? u.opened_at_utc)}</span>
+                </div>
+                <div>Platform: <strong>${u.platform}</strong> · Timezone: <strong>${u.timezone}</strong> · Screen: <strong>${u.screen}</strong></div>
+                <div class="mono">UA: ${u.user_agent}</div>
+              </div>
+            `).join("")
+          : `<p class="muted">No recent page opens yet.</p>`;
+
+        const exits = data.exits || [];
+        document.getElementById("exits-count").textContent = exits.length;
+        document.getElementById("exits-list").innerHTML = exits.length
+          ? exits.map(ex => `
+              <div class="log-item">
+                <div class="log-head">
+                  <span class="exit-tag">🚪 EXITED · IP: ${ex.ip}</span>
+                  <span>${formatIst12Hour(ex.timestamp_epoch ?? ex.timestamp_utc)}</span>
+                </div>
+                <div>Stayed: <strong>${ex.duration_sec}s</strong> · Reason: <strong>${ex.exit_reason}</strong> · Platform: <strong>${ex.platform}</strong></div>
+                <div class="mono">UA: ${ex.user_agent}</div>
+              </div>
+            `).join("")
+          : `<p class="muted">No exits recorded yet.</p>`;
 
         const logs = data.predictions || [];
         document.getElementById("logs-count").textContent = logs.length;
@@ -321,13 +475,25 @@
     }
 
     saveKeyBtn.addEventListener("click", () => {
+      unlockAudio();
       localStorage.setItem("BROKEMETER_ADMIN_KEY", getKey());
       loadTelemetry();
     });
 
-    refreshBtn.addEventListener("click", loadTelemetry);
-    turnOnBtn.addEventListener("click", () => setSiteEnabled(true));
-    turnOffBtn.addEventListener("click", () => setSiteEnabled(false));
+    refreshBtn.addEventListener("click", () => {
+      unlockAudio();
+      loadTelemetry();
+    });
+
+    turnOnBtn.addEventListener("click", () => {
+      unlockAudio();
+      setSiteEnabled(true);
+    });
+
+    turnOffBtn.addEventListener("click", () => {
+      unlockAudio();
+      setSiteEnabled(false);
+    });
 
     if (savedKey) {
       loadTelemetry();
