@@ -160,7 +160,7 @@
       <div class="switch-box">
         <div>
           <span id="site-state-badge" class="switch-badge badge-on">SITE: ON</span>
-          <p class="muted" style="margin-top: 6px;">Turns BrokeMeter predictions on or off remotely.</p>
+          <p class="muted" style="margin-top: 6px;">Turns BrokeMeter predictions on or off remotely (syncs every 1s).</p>
         </div>
         <div class="row">
           <button type="button" id="turn-on-btn" class="btn-on">Turn ON</button>
@@ -200,6 +200,20 @@
       return keyInput.value.trim();
     }
 
+    function formatIst12Hour(isoOrEpoch) {
+      if (!isoOrEpoch) return "--:--:-- AM IST";
+      const d = typeof isoOrEpoch === "number" ? new Date(isoOrEpoch * 1000) : new Date(isoOrEpoch);
+      if (Number.isNaN(d.getTime())) return String(isoOrEpoch);
+      const timeStr = d.toLocaleTimeString("en-IN", {
+        timeZone: "Asia/Kolkata",
+        hour: "2-digit",
+        minute: "2-digit",
+        second: "2-digit",
+        hour12: true
+      }).toUpperCase();
+      return `${timeStr} IST`;
+    }
+
     function setBadge(enabled) {
       if (enabled) {
         badge.textContent = "SITE: ON";
@@ -219,7 +233,8 @@
 
       try {
         const res = await fetch(`${API_BASE_URL}/api/telemetry`, {
-          headers: { "X-Admin-Key": key }
+          headers: { "X-Admin-Key": key },
+          cache: "no-store"
         });
         const data = await res.json();
         if (!res.ok) {
@@ -227,7 +242,7 @@
           return;
         }
 
-        statusLine.textContent = `Connected to ${API_BASE_URL}`;
+        statusLine.textContent = `Connected to ${API_BASE_URL} · Live 1s sync`;
         setBadge(data.site_enabled);
 
         const users = data.connected_users || [];
@@ -237,7 +252,7 @@
               <div class="log-item">
                 <div class="log-head">
                   <span>IP: ${u.ip}</span>
-                  <span>${u.last_seen_utc}</span>
+                  <span>${formatIst12Hour(u.last_seen_epoch ?? u.last_seen_utc)}</span>
                 </div>
                 <div>Platform: <strong>${u.platform}</strong> · Timezone: <strong>${u.timezone}</strong></div>
                 <div>Screen: <strong>${u.screen}</strong> · Viewport: <strong>${u.viewport}</strong></div>
@@ -256,7 +271,7 @@
                 <div class="log-item">
                   <div class="log-head">
                     <span>IP: ${item.ip}</span>
-                    <span>${item.timestamp_utc}</span>
+                    <span>${formatIst12Hour(item.timestamp_utc)}</span>
                   </div>
                   <div>
                     <strong>Inputs:</strong> Allowance ₹${inp.allowance}, Bills ₹${inp.bills},
@@ -316,7 +331,7 @@
 
     if (savedKey) {
       loadTelemetry();
-      setInterval(loadTelemetry, 8000);
+      setInterval(loadTelemetry, 1000);
     }
   </script>
 </body>
