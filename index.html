@@ -27,7 +27,7 @@
       background: linear-gradient(135deg, #5542a0, #7665e8);
       border-radius: 18px;
       padding: 20px;
-      margin-bottom: 14px;
+      margin-bottom: 12px;
       box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
     }
 
@@ -40,6 +40,36 @@
     .top-bar p {
       font-size: 12px;
       opacity: 0.9;
+    }
+
+    .menu-bar {
+      display: flex;
+      gap: 10px;
+      background: #1a1930;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 14px;
+      padding: 8px;
+      margin-bottom: 14px;
+    }
+
+    .menu-btn {
+      flex: 1;
+      padding: 10px 12px;
+      border: none;
+      border-radius: 10px;
+      background: transparent;
+      color: #cbd5e1;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+
+    .menu-btn.active {
+      background: #6c5ce7;
+      color: #ffffff;
+      box-shadow: 0 4px 14px rgba(108, 92, 231, 0.35);
     }
 
     .alert-banner {
@@ -151,7 +181,7 @@
       padding: 14px;
       margin-bottom: 12px;
       font-size: 12px;
-      line-height: 1.6;
+      line-height: 1.65;
     }
 
     .log-head {
@@ -162,6 +192,14 @@
       color: #a29bfe;
       margin-bottom: 6px;
       flex-wrap: wrap;
+    }
+
+    .pill-live {
+      color: #2ed573;
+    }
+
+    .pill-left {
+      color: #94a3b8;
     }
 
     .exit-tag {
@@ -176,6 +214,7 @@
     }
 
     .muted { color: #94a3b8; font-size: 12px; }
+    .hidden { display: none; }
   </style>
 </head>
 <body>
@@ -185,59 +224,79 @@
       <p id="status-line">Enter your Admin Key to view live viewers, opens, exits & toggle site state</p>
     </header>
 
+    <nav class="menu-bar" aria-label="Telemetry Navigation">
+      <button type="button" id="tab-main-btn" class="menu-btn active">Live & Controls</button>
+      <button type="button" id="tab-all-users-btn" class="menu-btn">All Live users data (<span id="menu-all-count">0</span>)</button>
+    </nav>
+
     <div id="open-alert-banner" class="alert-banner">
       <span id="open-alert-text">🔔 Waiting for new web opens...</span>
       <button type="button" id="enable-sound-btn" class="sound-pill">🔊 Sound: ON</button>
     </div>
 
-    <section class="card">
-      <h2>Admin Access</h2>
-      <div class="row">
-        <input type="password" id="admin-key-input" placeholder="Enter X-Admin-Key">
-        <button type="button" id="save-key-btn" class="btn-save">Save & Connect</button>
-        <button type="button" id="refresh-btn" class="btn-refresh">Refresh</button>
-      </div>
-    </section>
-
-    <section class="card">
-      <h2>Remote BrokeMeter Site Switch</h2>
-      <div class="switch-box">
-        <div>
-          <span id="site-state-badge" class="switch-badge badge-on">SITE: ON</span>
-          <p class="muted" style="margin-top: 6px;">Turns BrokeMeter on or off remotely (syncs every 1s).</p>
-        </div>
+    <div id="view-main">
+      <section class="card">
+        <h2>Admin Access</h2>
         <div class="row">
-          <button type="button" id="turn-on-btn" class="btn-on">Turn ON</button>
-          <button type="button" id="turn-off-btn" class="btn-off">Turn OFF</button>
+          <input type="password" id="admin-key-input" placeholder="Enter X-Admin-Key">
+          <button type="button" id="save-key-btn" class="btn-save">Save & Connect</button>
+          <button type="button" id="refresh-btn" class="btn-refresh">Refresh</button>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section class="card">
-      <h2>Live Users Watching Right Now (<span id="live-watching-count">0</span>)</h2>
-      <div id="live-watching-list"><p class="muted">No live viewers right now.</p></div>
-    </section>
+      <section class="card">
+        <h2>Remote BrokeMeter Site Switch</h2>
+        <div class="switch-box">
+          <div>
+            <span id="site-state-badge" class="switch-badge badge-on">SITE: ON</span>
+            <p class="muted" style="margin-top: 6px;">Turns BrokeMeter on or off remotely (syncs every 1s).</p>
+          </div>
+          <div class="row">
+            <button type="button" id="turn-on-btn" class="btn-on">Turn ON</button>
+            <button type="button" id="turn-off-btn" class="btn-off">Turn OFF</button>
+          </div>
+        </div>
+      </section>
 
-    <section class="card">
-      <h2>Just Opened the Page</h2>
-      <div id="just-opened-list"><p class="muted">No recent page opens yet.</p></div>
-    </section>
+      <section class="card">
+        <h2>Live Users Watching Right Now (<span id="live-watching-count">0</span>)</h2>
+        <div id="live-watching-list"><p class="muted">No live viewers right now.</p></div>
+      </section>
 
-    <section class="card">
-      <h2>Exits Data (<span id="exits-count">0</span>)</h2>
-      <div id="exits-list"><p class="muted">No exits recorded yet.</p></div>
-    </section>
+      <section class="card">
+        <h2>Just Opened the Page</h2>
+        <div id="just-opened-list"><p class="muted">No recent page opens yet.</p></div>
+      </section>
 
-    <section class="card">
-      <h2>Forwarded Calculations & User Inputs (<span id="logs-count">0</span>)</h2>
-      <div id="logs-list"><p class="muted">No predictions logged yet.</p></div>
-    </section>
+      <section class="card">
+        <h2>Exits Data (<span id="exits-count">0</span>)</h2>
+        <div id="exits-list"><p class="muted">No exits recorded yet.</p></div>
+      </section>
+
+      <section class="card">
+        <h2>Forwarded Calculations & User Inputs (<span id="logs-count">0</span>)</h2>
+        <div id="logs-list"><p class="muted">No predictions logged yet.</p></div>
+      </section>
+    </div>
+
+    <div id="view-all-users" class="hidden">
+      <section class="card">
+        <h2>All Live users data (<span id="all-users-count">0</span>)</h2>
+        <p class="muted" style="margin-bottom: 14px;">Every session that opened BrokeMeter, saved one by one with full details.</p>
+        <div id="all-users-list"><p class="muted">No opened user records yet.</p></div>
+      </section>
+    </div>
   </div>
 
   <script>
     const DEFAULT_HOSTED_API_URL = "https://backendforbrokemeter.onrender.com";
     const metaUrl = document.querySelector('meta[name="api-base-url"]')?.content?.trim() || "";
     const API_BASE_URL = (metaUrl || DEFAULT_HOSTED_API_URL).replace(/\/+$/, "");
+
+    const tabMainBtn = document.getElementById("tab-main-btn");
+    const tabAllUsersBtn = document.getElementById("tab-all-users-btn");
+    const viewMain = document.getElementById("view-main");
+    const viewAllUsers = document.getElementById("view-all-users");
 
     const keyInput = document.getElementById("admin-key-input");
     const saveKeyBtn = document.getElementById("save-key-btn");
@@ -249,6 +308,20 @@
     const openAlertText = document.getElementById("open-alert-text");
     const statusLine = document.getElementById("status-line");
     const badge = document.getElementById("site-state-badge");
+
+    tabMainBtn.addEventListener("click", () => {
+      tabMainBtn.classList.add("active");
+      tabAllUsersBtn.classList.remove("active");
+      viewMain.classList.remove("hidden");
+      viewAllUsers.classList.add("hidden");
+    });
+
+    tabAllUsersBtn.addEventListener("click", () => {
+      tabAllUsersBtn.classList.add("active");
+      tabMainBtn.classList.remove("active");
+      viewAllUsers.classList.remove("hidden");
+      viewMain.classList.add("hidden");
+    });
 
     const savedKey = localStorage.getItem("BROKEMETER_ADMIN_KEY") || "";
     if (savedKey) keyInput.value = savedKey;
@@ -378,14 +451,14 @@
           ? watching.map(u => `
               <div class="log-item">
                 <div class="log-head">
-                  <span>🟢 WATCHING · IP: ${u.ip}</span>
+                  <span class="pill-live">🟢 WATCHING · IP: ${u.ip}</span>
                   <span>Opened: ${formatIst12Hour(u.opened_at_epoch ?? u.opened_at_utc)}</span>
                 </div>
                 <div>Platform: <strong>${u.platform}</strong> · Screen: <strong>${u.screen}</strong> · Viewport: <strong>${u.viewport}</strong></div>
                 <div class="mono">UA: ${u.user_agent}</div>
               </div>
             `).join("")
-          : `<p class="muted">No live users watching right now.</p>`;
+          : `<p class="muted">No live viewers right now.</p>`;
 
         document.getElementById("just-opened-list").innerHTML = openedUsers.length
           ? openedUsers.map(u => `
@@ -399,6 +472,25 @@
               </div>
             `).join("")
           : `<p class="muted">No recent page opens yet.</p>`;
+
+        const allUsers = data.all_opened_users || [];
+        document.getElementById("all-users-count").textContent = allUsers.length;
+        document.getElementById("menu-all-count").textContent = allUsers.length;
+        document.getElementById("all-users-list").innerHTML = allUsers.length
+          ? allUsers.map((u, idx) => `
+              <div class="log-item">
+                <div class="log-head">
+                  <span>#${allUsers.length - idx} · IP: ${u.ip} · <span class="${u.currently_watching ? "pill-live" : "pill-left"}">${u.currently_watching ? "LIVE NOW" : "CLOSED/IDLE"}</span></span>
+                  <span>Opened: ${formatIst12Hour(u.opened_at_epoch ?? u.opened_at_utc)}</span>
+                </div>
+                <div>Session ID: <span class="mono">${u.session_id}</span></div>
+                <div>Platform: <strong>${u.platform}</strong> · Language: <strong>${u.language || "unknown"}</strong> · Timezone: <strong>${u.timezone || "unknown"}</strong></div>
+                <div>Screen: <strong>${u.screen}</strong> · Viewport: <strong>${u.viewport}</strong> · Last Seen: <strong>${u.last_seen_epoch ? formatIst12Hour(u.last_seen_epoch) : "Exited"}</strong></div>
+                <div>URL: <span class="mono">${u.page_url || "unknown"}</span></div>
+                <div class="mono">UA: ${u.user_agent}</div>
+              </div>
+            `).join("")
+          : `<p class="muted">No opened user records yet.</p>`;
 
         const exits = data.exits || [];
         document.getElementById("exits-count").textContent = exits.length;
