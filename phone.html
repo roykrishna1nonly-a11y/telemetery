@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="api-base-url" content="https://backendforbrokemeter.onrender.com">
+  <title>BrokeMeter Phone Telemetry & Switch</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Poppins', Arial, sans-serif;
+      background: #121121;
+      color: #f4f5ff;
+      min-height: 100vh;
+      padding: 18px 14px 48px;
+    }
+
+    .wrap {
+      max-width: 680px;
+      margin: 0 auto;
+    }
+
+    .top-bar {
+      background: linear-gradient(135deg, #5542a0, #7665e8);
+      border-radius: 18px;
+      padding: 20px;
+      margin-bottom: 16px;
+      box-shadow: 0 10px 28px rgba(0, 0, 0, 0.35);
+    }
+
+    .top-bar h1 {
+      font-size: 20px;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .top-bar p {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+
+    .card {
+      background: #1c1b33;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 18px;
+      margin-bottom: 16px;
+    }
+
+    .card h2 {
+      font-size: 15px;
+      margin-bottom: 12px;
+      color: #b8afff;
+    }
+
+    .row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    input[type="password"] {
+      flex: 1;
+      min-width: 180px;
+      padding: 11px 13px;
+      border-radius: 10px;
+      border: 1px solid #35335c;
+      background: #121121;
+      color: #fff;
+      font-family: inherit;
+      font-size: 13px;
+    }
+
+    button {
+      padding: 11px 16px;
+      border: none;
+      border-radius: 10px;
+      font-family: inherit;
+      font-weight: 700;
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .btn-save { background: #6c5ce7; color: #fff; }
+    .btn-refresh { background: #2a284a; color: #fff; }
+
+    .switch-box {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .switch-badge {
+      padding: 6px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .badge-on { background: rgba(46, 213, 115, 0.2); color: #2ed573; }
+    .badge-off { background: rgba(255, 71, 87, 0.2); color: #ff6b81; }
+
+    .btn-on { background: #2ed573; color: #0b1911; }
+    .btn-off { background: #ff4757; color: #fff; }
+
+    .log-item {
+      background: #141326;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 12px;
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    .log-head {
+      display: flex;
+      justify-content: space-between;
+      gap: 8px;
+      font-weight: 700;
+      color: #a29bfe;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .mono {
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 11px;
+      color: #cbd5e1;
+      word-break: break-all;
+    }
+
+    .muted { color: #94a3b8; font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header class="top-bar">
+      <h1>📱 BrokeMeter Phone Telemetry</h1>
+      <p id="status-line">Enter your Admin Key to view live user data & toggle site state</p>
+    </header>
+
+    <section class="card">
+      <h2>Admin Access</h2>
+      <div class="row">
+        <input type="password" id="admin-key-input" placeholder="Enter X-Admin-Key">
+        <button type="button" id="save-key-btn" class="btn-save">Save & Connect</button>
+        <button type="button" id="refresh-btn" class="btn-refresh">Refresh</button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Remote BrokeMeter Site Switch</h2>
+      <div class="switch-box">
+        <div>
+          <span id="site-state-badge" class="switch-badge badge-on">SITE: ON</span>
+          <p class="muted" style="margin-top: 6px;">Turns BrokeMeter predictions on or off remotely.</p>
+        </div>
+        <div class="row">
+          <button type="button" id="turn-on-btn" class="btn-on">Turn ON</button>
+          <button type="button" id="turn-off-btn" class="btn-off">Turn OFF</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Recently Connected Users (<span id="users-count">0</span>)</h2>
+      <div id="users-list"><p class="muted">No telemetry loaded yet.</p></div>
+    </section>
+
+    <section class="card">
+      <h2>Forwarded Calculations & User Inputs (<span id="logs-count">0</span>)</h2>
+      <div id="logs-list"><p class="muted">No predictions logged yet.</p></div>
+    </section>
+  </div>
+
+  <script>
+    const DEFAULT_HOSTED_API_URL = "https://backendforbrokemeter.onrender.com";
+    const metaUrl = document.querySelector('meta[name="api-base-url"]')?.content?.trim() || "";
+    const API_BASE_URL = (metaUrl || DEFAULT_HOSTED_API_URL).replace(/\/+$/, "");
+
+    const keyInput = document.getElementById("admin-key-input");
+    const saveKeyBtn = document.getElementById("save-key-btn");
+    const refreshBtn = document.getElementById("refresh-btn");
+    const turnOnBtn = document.getElementById("turn-on-btn");
+    const turnOffBtn = document.getElementById("turn-off-btn");
+    const statusLine = document.getElementById("status-line");
+    const badge = document.getElementById("site-state-badge");
+
+    const savedKey = localStorage.getItem("BROKEMETER_ADMIN_KEY") || "";
+    if (savedKey) keyInput.value = savedKey;
+
+    function getKey() {
+      return keyInput.value.trim();
+    }
+
+    function setBadge(enabled) {
+      if (enabled) {
+        badge.textContent = "SITE: ON";
+        badge.className = "switch-badge badge-on";
+      } else {
+        badge.textContent = "SITE: OFF";
+        badge.className = "switch-badge badge-off";
+      }
+    }
+
+    async function loadTelemetry() {
+      const key = getKey();
+      if (!key) {
+        statusLine.textContent = "Please enter your Admin Key first.";
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/telemetry`, {
+          headers: { "X-Admin-Key": key }
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusLine.textContent = data.detail || "Failed to load telemetry.";
+          return;
+        }
+
+        statusLine.textContent = `Connected to ${API_BASE_URL}`;
+        setBadge(data.site_enabled);
+
+        const users = data.connected_users || [];
+        document.getElementById("users-count").textContent = users.length;
+        document.getElementById("users-list").innerHTML = users.length
+          ? users.map(u => `
+              <div class="log-item">
+                <div class="log-head">
+                  <span>IP: ${u.ip}</span>
+                  <span>${u.last_seen_utc}</span>
+                </div>
+                <div>Platform: <strong>${u.platform}</strong> · Timezone: <strong>${u.timezone}</strong></div>
+                <div>Screen: <strong>${u.screen}</strong> · Viewport: <strong>${u.viewport}</strong></div>
+                <div class="mono">UA: ${u.user_agent}</div>
+              </div>
+            `).join("")
+          : `<p class="muted">No active users in the last 5 minutes.</p>`;
+
+        const logs = data.predictions || [];
+        document.getElementById("logs-count").textContent = logs.length;
+        document.getElementById("logs-list").innerHTML = logs.length
+          ? logs.map(item => {
+              const inp = item.inputs || {};
+              const out = item.outputs || {};
+              return `
+                <div class="log-item">
+                  <div class="log-head">
+                    <span>IP: ${item.ip}</span>
+                    <span>${item.timestamp_utc}</span>
+                  </div>
+                  <div>
+                    <strong>Inputs:</strong> Allowance ₹${inp.allowance}, Bills ₹${inp.bills},
+                    Weekday ₹${inp.weekday_spending ?? "-"}, Weekend ₹${inp.weekend_spending ?? "-"},
+                    Start: ${inp.start_date || "-"}
+                  </div>
+                  <div>
+                    <strong>Calculated:</strong> Balance ₹${out.balance}, Days Left: ${out.predicted_days_left},
+                    Risk: ${out.risk_percentage}% (${out.risk_score}), Rank: ${out.peer_rank}
+                  </div>
+                  <div class="mono">UA: ${item.user_agent}</div>
+                </div>
+              `;
+            }).join("")
+          : `<p class="muted">No calculations received yet.</p>`;
+      } catch (err) {
+        statusLine.textContent = `Network error reaching ${API_BASE_URL}`;
+      }
+    }
+
+    async function setSiteEnabled(enabled) {
+      const key = getKey();
+      if (!key) {
+        alert("Enter your Admin Key first.");
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API_BASE_URL}/api/site-toggle`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Admin-Key": key
+          },
+          body: JSON.stringify({ enabled })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          alert(data.detail || "Toggle failed.");
+          return;
+        }
+        setBadge(data.enabled);
+        statusLine.textContent = `BrokeMeter is now ${data.enabled ? "ON" : "OFF"}.`;
+      } catch (err) {
+        alert("Failed to update site state.");
+      }
+    }
+
+    saveKeyBtn.addEventListener("click", () => {
+      localStorage.setItem("BROKEMETER_ADMIN_KEY", getKey());
+      loadTelemetry();
+    });
+
+    refreshBtn.addEventListener("click", loadTelemetry);
+    turnOnBtn.addEventListener("click", () => setSiteEnabled(true));
+    turnOffBtn.addEventListener("click", () => setSiteEnabled(false));
+
+    if (savedKey) {
+      loadTelemetry();
+      setInterval(loadTelemetry, 8000);
+    }
+  </script>
+</body>
+</html>
